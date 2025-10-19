@@ -158,35 +158,29 @@ export default function TriviaPage() {
         })
       }
 
-      // Calcular puntos
-      const puntosPorRespuesta = 100
-      const bonusPerfecto = 200
-      let puntosTotales = correctas * puntosPorRespuesta
-      
-      if (correctas === 5) {
-        puntosTotales += bonusPerfecto
-      }
+      // Calcular aciertos (1 acierto = 1 punto, sin bonificaciones)
+      const aciertos = correctas
 
       // Guardar resultado de estación
       await supabase.from('resultados_estacion').insert({
         id_invitado: userId,
         id_estacion: estacion.id_estacion,
         correctas: correctas,
-        puntos: puntosTotales
+        puntos: aciertos
       })
 
-      // Actualizar puntos totales en invitados
+      // Actualizar aciertos totales en invitados
       const { data: invitadoActual } = await supabase
         .from('invitados')
         .select('puntaje')
         .eq('id_invitado', userId)
         .single()
 
-      const nuevosPuntosTotales = (invitadoActual?.puntaje || 0) + puntosTotales
+      const nuevosAciertos = (invitadoActual?.puntaje || 0) + aciertos
 
       await supabase
         .from('invitados')
-        .update({ puntaje: nuevosPuntosTotales })
+        .update({ puntaje: nuevosAciertos })
         .eq('id_invitado', userId)
 
       // Mostrar resultados
@@ -205,13 +199,10 @@ export default function TriviaPage() {
       if (respuestas[i] === p.opcion_correcta) correctas++
     })
     
-    const puntosPorRespuesta = 100
-    const bonusPerfecto = 200
-    let puntosTotales = correctas * puntosPorRespuesta
+    // 1 acierto = 1 punto (sin bonificaciones)
+    const aciertos = correctas
     
-    if (correctas === 5) puntosTotales += bonusPerfecto
-    
-    return { correctas, puntosTotales }
+    return { correctas, aciertos }
   }
 
   const preguntaActual = preguntas[currentQuestion]
@@ -358,18 +349,7 @@ export default function TriviaPage() {
               <p className="text-sm opacity-90">aciertos</p>
             </div>
 
-            {/* Puntos ganados */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-1">Puntos ganados</p>
-              <p className="text-3xl font-bold text-[#00A0E9]">
-                +{calcularResultados().puntosTotales}
-              </p>
-              {calcularResultados().correctas === 5 && (
-                <p className="text-sm text-green-600 font-semibold mt-2">
-                  ✨ ¡Bonus perfecto de 200 puntos!
-                </p>
-              )}
-            </div>
+            
 
             <div className="space-y-3 pt-4">
               <button
