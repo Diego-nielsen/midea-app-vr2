@@ -23,12 +23,17 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] flex flex-col items-center justify-center p-4">
       <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-        {/* Logo */}
-        <div className="flex justify-center mb-6 px-8">
+        {/* Logos en esquinas superiores */}
+        <div className="flex justify-between items-start mb-6 px-4">
           <img 
             src="/midea-logo.png" 
             alt="Midea Logo" 
-            className="w-full max-w-sm h-auto object-contain"
+            className="h-12 w-auto object-contain"
+          />
+          <img 
+            src="/begas-control.png" 
+            alt="Begas Control Logo" 
+            className="h-12 w-auto object-contain"
           />
         </div>
 
