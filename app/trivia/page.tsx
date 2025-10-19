@@ -342,25 +342,27 @@ export default function TriviaPage() {
         {step === 'results' && (
           <div className="bg-white rounded-2xl shadow-lg p-8 text-center space-y-6">
             <div className="text-6xl mb-4">
-              {calcularResultados().correctas === 5 ? '🎉' : '👏'}
+              {calcularResultados().correctas === 5 ? '🎉' : calcularResultados().correctas >= 3 ? '👏' : '💪'}
             </div>
             
             <h2 className="text-2xl font-bold text-[#0A0A0A]">
               ¡Trivia completada!
             </h2>
 
+            {/* Aciertos destacados */}
             <div className="bg-gradient-to-br from-[#00A0E9] to-[#007FBA] text-white rounded-xl p-6">
-              <p className="text-sm opacity-90 mb-2">Ganaste</p>
+              <p className="text-sm opacity-90 mb-2">Obtuviste</p>
               <p className="text-5xl font-bold mb-2">
-                +{calcularResultados().puntosTotales}
+                {calcularResultados().correctas}/{preguntas.length}
               </p>
-              <p className="text-sm opacity-90">puntos</p>
+              <p className="text-sm opacity-90">aciertos</p>
             </div>
 
-            <div className="text-left bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-2">Resumen:</p>
-              <p className="font-semibold text-[#0A0A0A]">
-                {calcularResultados().correctas} de {preguntas.length} respuestas correctas
+            {/* Puntos ganados */}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-sm text-gray-600 mb-1">Puntos ganados</p>
+              <p className="text-3xl font-bold text-[#00A0E9]">
+                +{calcularResultados().puntosTotales}
               </p>
               {calcularResultados().correctas === 5 && (
                 <p className="text-sm text-green-600 font-semibold mt-2">
