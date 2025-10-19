@@ -1,221 +1,217 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Scanner } from '@yudiel/react-qr-scanner'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+
+interface Invitado {
+  id_invitado: string
+  nombre: string
+  apellido: string
+  password: string | null
+  reclamado: boolean
+}
 
 export default function AuthQRPage() {
   const router = useRouter()
   const supabase = createClient()
-  
-  const [step, setStep] = useState<'scan' | 'password'>('scan')
-  const [invitadoData, setInvitadoData] = useState<any>(null)
-  const [scannedId, setScannedId] = useState('')
+  const [scanning, setScanning] = useState(true)
+  const [invitado, setInvitado] = useState<Invitado | null>(null)
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  const handleScan = async (result: any) => {
-    if (!result?.[0]?.rawValue || loading) return
-    
-    const qrCode = result[0].rawValue
-    setLoading(true)
-    setError('')
+  const handleScan = async (result: string) => {
+    if (result && scanning) {
+      setScanning(false)
+      const qrCode = result
 
-    console.log('🔍 QR escaneado:', qrCode)
+      try {
+        const { data, error: fetchError } = await supabase
+          .from('invitados')
+          .select('*')
+          .eq('id_invitado', qrCode)
+          .single()
 
-    try {
-      const { data, error: dbError } = await supabase
-        .from('invitados')
-        .select('*')
-        .eq('id_invitado', qrCode)
-        .single()
+        if (fetchError || !data) {
+          setError('Código QR no válido')
+          setTimeout(() => {
+            setScanning(true)
+            setError('')
+          }, 2000)
+          return
+        }
 
-      console.log('📊 Datos:', data)
-      console.log('❌ Error:', dbError)
-
-      if (dbError || !data) {
-        setError('Código QR no válido. Por favor intenta de nuevo.')
-        setLoading(false)
-        return
+        setInvitado(data)
+      } catch {
+        setError('Error al verificar código')
+        setTimeout(() => {
+          setScanning(true)
+          setError('')
+        }, 2000)
       }
-
-      setInvitadoData(data)
-      setScannedId(qrCode)
-      setStep('password')
-      setLoading(false)
-      
-    } catch (err) {
-      console.error('💥 Error:', err)
-      setError('Error al verificar el código')
-      setLoading(false)
     }
   }
 
   const handleAuth = async () => {
-    setError('')
-    
-    if (password.length < 4) {
-      setError('La contraseña debe tener al menos 4 caracteres')
-      return
-    }
-
+    if (!invitado) return
     setLoading(true)
-
-    console.log('🔐 Ya tiene contraseña:', !!invitadoData?.password)
+    setError('')
 
     try {
-      // Si ya tiene contraseña = login
-      if (invitadoData?.password && invitadoData.password !== '') {
-        console.log('✅ Login - verificando contraseña...')
+      if (!invitado.password) {
+        if (password.length < 4) {
+          setError('La contraseña debe tener al menos 4 caracteres')
+          setLoading(false)
+          return
+        }
         
-        if (invitadoData.password !== password) {
+        if (password !== confirmPassword) {
+          setError('Las contraseñas no coinciden')
+          setLoading(false)
+          return
+        }
+
+        const { error: updateError } = await supabase
+          .from('invitados')
+          .update({ 
+            password: password,
+            reclamado: true 
+          })
+          .eq('id_invitado', invitado.id_invitado)
+
+        if (updateError) {
+          setError('Error al crear contraseña')
+          setLoading(false)
+          return
+        }
+
+        localStorage.setItem('midea_user', invitado.id_invitado)
+        router.push('/dashboard')
+      } else {
+        if (password !== invitado.password) {
           setError('Contraseña incorrecta')
           setLoading(false)
           return
         }
 
-        // Login exitoso
-        console.log('✅ Login exitoso')
-        localStorage.setItem('midea_user_id', invitadoData.id_invitado)
-        localStorage.setItem('midea_user_data', JSON.stringify(invitadoData))
-        router.push('/dashboard')
-
-      } else {
-        // Crear contraseña nueva
-        console.log('🆕 Registrando usuario...')
-        
-        const { data: updated, error: updateError } = await supabase
-          .from('invitados')
-          .update({
-            password: password,
-            reclamado: true
-          })
-          .eq('id_invitado', scannedId)
-          .select()
-          .single()
-
-        console.log('✅ Update result:', updated)
-        console.log('❌ Update error:', updateError)
-
-        if (updateError) {
-          setError(`Error: ${updateError.message}`)
-          setLoading(false)
-          return
-        }
-
-        // Registro exitoso
-        console.log('✅ Registro exitoso')
-        localStorage.setItem('midea_user_id', scannedId)
-        localStorage.setItem('midea_user_data', JSON.stringify(updated))
+        localStorage.setItem('midea_user', invitado.id_invitado)
         router.push('/dashboard')
       }
-      
-    } catch (err: any) {
-      console.error('💥 Error:', err)
-      setError(err.message || 'Error al procesar la autenticación')
+    } catch {
+      setError('Error en la autenticación')
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] p-6">
-      <div className="max-w-md mx-auto pt-8">
-        
-        {/* Botón volver */}
-        <button
-          onClick={() => router.push('/')}
-          className="text-white mb-6 flex items-center gap-2 hover:gap-3 transition-all"
-        >
-          ← Volver
-        </button>
-
-        <div className="bg-white rounded-2xl shadow-2xl p-8 space-y-6">
-          
-          {step === 'scan' ? (
-            <>
-              <h2 className="text-2xl font-bold text-center text-[#0A0A0A]">
-                Escanea tu código QR
-              </h2>
-              
-              <div className="bg-black rounded-lg overflow-hidden">
-                <Scanner
-                  onScan={handleScan}
-                  onError={(error) => setError('Error al acceder a la cámara')}
-                  styles={{
-                    container: { width: '100%' }
-                  }}
-                />
-              </div>
-
-              {loading && (
-                <p className="text-center text-gray-600 animate-pulse">Verificando código...</p>
-              )}
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-
-              <p className="text-sm text-gray-600 text-center">
-                Busca el código QR en tu tarjeta de invitado
-              </p>
-            </>
-          ) : (
-            <>
-              {/* Paso de contraseña */}
-              <div className="text-center">
-                <h2 className="text-2xl font-bold mb-2 text-[#0A0A0A]">
-                  ¡Hola, {invitadoData?.nombre}!
-                </h2>
-                <p className="text-gray-600">
-                  {invitadoData?.password ? 'Ingresa tu contraseña' : 'Crea tu contraseña de acceso'}
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <input
-                  type="password"
-                  placeholder="Contraseña (mínimo 4 caracteres)"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAuth()}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#00A0E9] focus:outline-none transition-colors"
-                  autoFocus
-                />
-
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                    {error}
-                  </div>
-                )}
-
-                <button
-                  onClick={handleAuth}
-                  disabled={loading}
-                  className="w-full bg-[#00A0E9] hover:bg-[#007FBA] text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Procesando...' : invitadoData?.password ? 'Iniciar sesión' : 'Crear contraseña'}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setStep('scan')
-                    setInvitadoData(null)
-                    setPassword('')
-                    setError('')
-                  }}
-                  className="w-full bg-white border-2 border-[#00A0E9] text-[#00A0E9] hover:bg-[#00A0E9] hover:text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200"
-                >
-                  Escanear otro código
-                </button>
-              </div>
-            </>
-          )}
-          
+    <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="flex justify-between items-center mb-8 px-4">
+          <img 
+            src="/midea-logo.png" 
+            alt="Midea Logo" 
+            className="h-12 w-auto object-contain brightness-0 invert"
+          />
+          <img 
+            src="/begas-control.png" 
+            alt="Begas Control Logo" 
+            className="h-10 w-auto object-contain brightness-0 invert"
+          />
         </div>
+
+        {scanning && (
+          <div className="bg-white rounded-2xl p-6 shadow-2xl">
+            <h2 className="text-2xl font-bold mb-6 text-center text-[#0A0A0A]">
+              Escanea tu código QR
+            </h2>
+            <div className="aspect-square w-full max-w-sm mx-auto rounded-lg overflow-hidden">
+              <Scanner
+                onScan={(result) => {
+                  if (result && result[0]) {
+                    handleScan(result[0].rawValue)
+                  }
+                }}
+                styles={{
+                  container: { width: '100%', height: '100%' }
+                }}
+              />
+            </div>
+            {error && (
+              <p className="text-red-500 text-center mt-4 font-semibold">{error}</p>
+            )}
+            <Button
+              onClick={() => router.push('/')}
+              variant="outline"
+              className="w-full mt-6"
+            >
+              Volver al inicio
+            </Button>
+          </div>
+        )}
+
+        {invitado && !scanning && (
+          <div className="bg-white rounded-2xl p-6 shadow-2xl">
+            <h2 className="text-2xl font-bold mb-2 text-[#0A0A0A]">
+              ¡Hola, {invitado.nombre}!
+            </h2>
+            <p className="text-gray-600 mb-6">
+              {invitado.password ? 'Ingresa tu contraseña' : 'Crea tu contraseña para continuar'}
+            </p>
+
+            <div className="space-y-4">
+              <Input
+                type="password"
+                placeholder="Contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && !invitado.password ? null : handleAuth()}
+                className="w-full"
+              />
+
+              {!invitado.password && (
+                <Input
+                  type="password"
+                  placeholder="Confirmar contraseña"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAuth()}
+                  className="w-full"
+                />
+              )}
+
+              {error && <p className="text-red-500 text-sm font-semibold">{error}</p>}
+
+              <Button
+                onClick={handleAuth}
+                disabled={loading}
+                className="w-full bg-[#00A0E9] hover:bg-[#007FBA] py-6 text-lg"
+              >
+                {loading ? 'Procesando...' : invitado.password ? 'Iniciar Sesión' : 'Crear Cuenta'}
+              </Button>
+
+              <Button
+                onClick={() => {
+                  setInvitado(null)
+                  setScanning(true)
+                  setPassword('')
+                  setConfirmPassword('')
+                  setError('')
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                Escanear otro código
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -23,7 +23,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] flex flex-col items-center justify-center p-4">
       <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-        {/* Logos en esquinas superiores */}
+        {/* Logos */}
         <div className="flex justify-between items-center mb-6 px-4">
           <img 
             src="/midea-logo.png" 
@@ -37,7 +37,6 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Title */}
         <h1 className="text-center mb-2 text-gray-800">
           <span className="text-2xl font-normal">Bienvenido a</span>
         </h1>
@@ -45,12 +44,10 @@ export default function HomePage() {
           Midea Experience
         </h2>
 
-        {/* Description */}
         <p className="text-center text-gray-600 mb-8">
           Escanea tu código QR para comenzar la aventura interactiva
         </p>
 
-        {/* Main Button */}
         <Button
           onClick={() => router.push('/auth-qr')}
           className="w-full bg-[#00A0E9] hover:bg-[#007FBA] text-white py-6 text-lg rounded-lg mb-4"
@@ -58,7 +55,6 @@ export default function HomePage() {
           Iniciar sesión o registrarse
         </Button>
 
-        {/* Admin Link */}
         <div className="text-center">
           <button
             onClick={() => router.push('/admin')}
@@ -69,7 +65,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Footer */}
       <div className="mt-8 text-white text-sm">
         Powered by Midea
       </div>
