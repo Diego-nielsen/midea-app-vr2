@@ -23,11 +23,13 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] flex flex-col items-center justify-center p-4">
       <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-        {/* Logo Circle */}
+        {/* Logo */}
         <div className="flex justify-center mb-6">
-          <div className="w-24 h-24 bg-[#00A0E9] rounded-full flex items-center justify-center shadow-lg">
-            <span className="text-white text-5xl font-bold">M</span>
-          </div>
+          <img 
+            src="/midea-logo.png" 
+            alt="Midea Logo" 
+            className="w-24 h-24 object-contain"
+          />
         </div>
 
         {/* Title */}
