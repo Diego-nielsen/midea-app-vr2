@@ -6,7 +6,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 
 interface UserData {
   nombre: string
@@ -14,26 +13,21 @@ interface UserData {
   puntaje: number
 }
 
-interface EstacionCompletada {
-  id_estacion: string
-  nombre: string
-  correctas: number
-  total_preguntas: number
-  puntos: number
-}
-
-interface EstacionPendiente {
+interface Estacion {
   id_estacion: string
   nombre: string
   descripcion: string
+  completada: boolean
+  correctas?: number
+  total_preguntas?: number
+  puntos?: number
 }
 
 export default function DashboardPage() {
   const router = useRouter()
   const supabase = createClient()
   const [userData, setUserData] = useState<UserData | null>(null)
-  const [estacionesCompletadas, setEstacionesCompletadas] = useState<EstacionCompletada[]>([])
-  const [estacionesPendientes, setEstacionesPendientes] = useState<EstacionPendiente[]>([])
+  const [estaciones, setEstaciones] = useState<Estacion[]>([])
   const [loading, setLoading] = useState(true)
 
   const loadUserData = useCallback(async () => {
@@ -60,32 +54,25 @@ export default function DashboardPage() {
         .select('id_estacion, nombre, descripcion')
         .order('nombre')
 
-      // Cargar resultados de estaciones completadas
+      // Cargar resultados completados
       const { data: resultados } = await supabase
         .from('resultados_estacion')
         .select('id_estacion, correctas, puntos')
         .eq('id_invitado', userId)
 
-      // Procesar estaciones completadas
-      const completadas: EstacionCompletada[] = []
-      for (const resultado of resultados || []) {
-        const estacion = todasEstaciones?.find(e => e.id_estacion === resultado.id_estacion)
-        if (estacion) {
-          completadas.push({
-            id_estacion: resultado.id_estacion,
-            nombre: estacion.nombre,
-            correctas: resultado.correctas,
-            total_preguntas: 5, // Siempre son 5 preguntas
-            puntos: resultado.puntos
-          })
+      // Combinar datos
+      const estacionesProcesadas: Estacion[] = (todasEstaciones || []).map(est => {
+        const resultado = resultados?.find(r => r.id_estacion === est.id_estacion)
+        return {
+          ...est,
+          completada: !!resultado,
+          correctas: resultado?.correctas,
+          total_preguntas: 5,
+          puntos: resultado?.puntos
         }
-      }
-      setEstacionesCompletadas(completadas)
+      })
 
-      // Procesar estaciones pendientes
-      const completadasIds = completadas.map(e => e.id_estacion)
-      const pendientes = todasEstaciones?.filter(e => !completadasIds.includes(e.id_estacion)) || []
-      setEstacionesPendientes(pendientes)
+      setEstaciones(estacionesProcesadas)
 
     } catch (error) {
       console.error('Error loading user data:', error)
@@ -103,133 +90,180 @@ export default function DashboardPage() {
     router.push('/')
   }
 
+  const completadas = estaciones.filter(e => e.completada).length
+  const totalEstaciones = estaciones.length
+  const porcentajeCompletado = totalEstaciones > 0 ? Math.round((completadas / totalEstaciones) * 100) : 0
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] flex items-center justify-center">
-        <div className="text-white text-xl">Cargando...</div>
+      <div className="min-h-screen bg-gradient-to-br from-[#00A0E9] via-[#007FBA] to-[#005A8F] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white text-xl font-semibold">Cargando experiencia...</p>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] p-4 pb-8">
-      <div className="max-w-md mx-auto pt-8">
-        {/* Logos */}
-        <div className="flex justify-between items-center mb-8 px-4">
-          <img 
-            src="/midea-logo.png" 
-            alt="Midea Logo" 
-            className="h-12 w-auto object-contain brightness-0 invert"
-          />
-          <img 
-            src="/begas-control.png" 
-            alt="Begas Control Logo" 
-            className="h-10 w-auto object-contain brightness-0 invert"
-          />
+    <div className="min-h-screen bg-gradient-to-br from-[#00A0E9] via-[#007FBA] to-[#005A8F]">
+      {/* Header con efecto glass */}
+      <div className="backdrop-blur-md bg-white/10 border-b border-white/20">
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <img 
+                src="/midea-logo.png" 
+                alt="Midea Logo" 
+                className="h-10 w-auto brightness-0 invert"
+              />
+              <div className="h-8 w-px bg-white/30"></div>
+              <img 
+                src="/begas-control.png" 
+                alt="Begas Control" 
+                className="h-8 w-auto brightness-0 invert"
+              />
+            </div>
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              className="text-white hover:bg-white/20 border border-white/30"
+            >
+              Salir →
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+        
+        {/* Bienvenida */}
+        <div className="text-center text-white mb-8">
+          <p className="text-lg opacity-90 mb-2">Bienvenido de vuelta,</p>
+          <h1 className="text-4xl font-bold">{userData?.nombre}</h1>
         </div>
 
-        <div className="mb-8 text-center text-white">
-          <h1 className="text-3xl font-bold mb-2">
-            Midea Experience
-          </h1>
-          {userData && (
-            <p className="text-xl">
-              ¡Hola, {userData.nombre}!
-            </p>
+        {/* Stats principales - Cards en grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          
+          {/* Puntaje total */}
+          <div className="backdrop-blur-xl bg-white/95 rounded-2xl p-6 shadow-2xl border border-white/50 hover:scale-105 transition-transform">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Puntaje Total</span>
+              <span className="text-3xl">🏆</span>
+            </div>
+            <p className="text-5xl font-black text-[#00A0E9] mb-2">{userData?.puntaje || 0}</p>
+            <p className="text-xs text-gray-500">puntos acumulados</p>
+          </div>
+
+          {/* Estaciones completadas */}
+          <div className="backdrop-blur-xl bg-white/95 rounded-2xl p-6 shadow-2xl border border-white/50 hover:scale-105 transition-transform">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Progreso</span>
+              <span className="text-3xl">📍</span>
+            </div>
+            <p className="text-5xl font-black text-[#00A0E9] mb-2">{completadas}/{totalEstaciones}</p>
+            <p className="text-xs text-gray-500">estaciones completadas</p>
+          </div>
+
+          {/* Porcentaje */}
+          <div className="backdrop-blur-xl bg-white/95 rounded-2xl p-6 shadow-2xl border border-white/50 hover:scale-105 transition-transform">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Completado</span>
+              <span className="text-3xl">⚡</span>
+            </div>
+            <p className="text-5xl font-black text-[#00A0E9] mb-2">{porcentajeCompletado}%</p>
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
+              <div 
+                className="bg-gradient-to-r from-[#00A0E9] to-[#007FBA] h-2 rounded-full transition-all duration-500"
+                style={{ width: `${porcentajeCompletado}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Estaciones - Grid moderno */}
+        <div className="backdrop-blur-xl bg-white/95 rounded-2xl p-6 shadow-2xl border border-white/50">
+          <h2 className="text-2xl font-bold text-[#0A0A0A] mb-6 flex items-center gap-3">
+            <span className="text-3xl">🎯</span>
+            Estaciones Midea
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {estaciones.map((estacion) => (
+              <div
+                key={estacion.id_estacion}
+                className={`relative rounded-xl p-5 border-2 transition-all duration-300 ${
+                  estacion.completada
+                    ? 'bg-gradient-to-br from-green-50 to-blue-50 border-green-300 shadow-lg'
+                    : 'bg-gray-50 border-gray-200 hover:border-[#00A0E9] hover:shadow-md'
+                }`}
+              >
+                {/* Badge estado */}
+                <div className="absolute top-3 right-3">
+                  {estacion.completada ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-green-500 text-white">
+                      ✓ Completada
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-gray-300 text-gray-700">
+                      Pendiente
+                    </span>
+                  )}
+                </div>
+
+                {/* Contenido */}
+                <div className="pr-20">
+                  <h3 className="text-lg font-bold text-[#0A0A0A] mb-2">{estacion.nombre}</h3>
+                  <p className="text-sm text-gray-600 mb-4">{estacion.descripcion}</p>
+
+                  {estacion.completada ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-gray-200">
+                        <span className="text-sm font-semibold text-gray-600">Aciertos</span>
+                        <span className="text-lg font-black text-[#00A0E9]">
+                          {estacion.correctas}/{estacion.total_preguntas}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-gray-200">
+                        <span className="text-sm font-semibold text-gray-600">Puntos</span>
+                        <span className="text-lg font-black text-green-600">
+                          +{estacion.puntos}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-lg px-4 py-3 border-2 border-dashed border-gray-300 text-center">
+                      <p className="text-sm text-gray-500 font-semibold">Aún no completada</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {estaciones.length === 0 && (
+            <div className="text-center py-12 text-gray-400">
+              <p className="text-lg">No hay estaciones disponibles</p>
+            </div>
           )}
         </div>
 
-        {/* Card de puntaje */}
-        <Card className="p-6 mb-6">
-          <div className="text-center">
-            <p className="text-gray-600 mb-2">Tu puntaje total</p>
-            <p className="text-6xl font-bold text-[#00A0E9]">
-              {userData?.puntaje || 0}
-            </p>
-            <p className="text-sm text-gray-500 mt-4">
-              {estacionesCompletadas.length} de {estacionesCompletadas.length + estacionesPendientes.length} estaciones completadas
-            </p>
-          </div>
-        </Card>
-
-        {/* Estaciones completadas */}
-        {estacionesCompletadas.length > 0 && (
-          <Card className="p-6 mb-6">
-            <h3 className="text-lg font-bold text-[#0A0A0A] mb-4">
-              ✅ Estaciones completadas
-            </h3>
-            <div className="space-y-3">
-              {estacionesCompletadas.map((est) => (
-                <div 
-                  key={est.id_estacion} 
-                  className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 border border-green-200"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-[#0A0A0A]">{est.nombre}</h4>
-                    <span className="text-xs font-semibold px-2 py-1 bg-green-100 text-green-700 rounded-full">
-                      Completada
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div className="text-sm">
-                      <span className="font-bold text-[#00A0E9]">{est.correctas}</span>
-                      <span className="text-gray-600"> / {est.total_preguntas} aciertos</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-lg font-bold text-[#00A0E9]">+{est.puntos}</span>
-                      <span className="text-xs text-gray-500 block">puntos</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Estaciones pendientes */}
-        {estacionesPendientes.length > 0 && (
-          <Card className="p-6 mb-6">
-            <h3 className="text-lg font-bold text-[#0A0A0A] mb-4">
-              📍 Estaciones pendientes
-            </h3>
-            <div className="space-y-3">
-              {estacionesPendientes.map((est) => (
-                <div 
-                  key={est.id_estacion} 
-                  className="bg-gray-50 rounded-lg p-4 border border-gray-200"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-[#0A0A0A] mb-1">{est.nombre}</h4>
-                      <p className="text-sm text-gray-600">{est.descripcion}</p>
-                    </div>
-                    <span className="text-xs font-semibold px-2 py-1 bg-gray-200 text-gray-600 rounded-full whitespace-nowrap ml-2">
-                      Pendiente
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Botones de acción */}
-        <div className="space-y-3">
+        {/* Botón CTA grande */}
+        <div className="sticky bottom-6 z-10">
           <Button
             onClick={() => router.push('/trivia')}
-            className="w-full bg-[#00A0E9] hover:bg-[#007FBA] text-white py-6 text-lg"
+            disabled={completadas === totalEstaciones}
+            className="w-full bg-gradient-to-r from-[#00A0E9] to-[#007FBA] hover:from-[#007FBA] hover:to-[#005A8F] text-white py-8 text-xl font-bold rounded-2xl shadow-2xl border-2 border-white/30 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all"
           >
-            {estacionesPendientes.length > 0 ? 'Ir a Trivias' : '🎉 ¡Has completado todas las estaciones!'}
-          </Button>
-
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            className="w-full bg-white"
-          >
-            Cerrar Sesión
+            {completadas === totalEstaciones ? (
+              <>🎉 ¡Felicidades! Completaste todas las estaciones</>
+            ) : (
+              <>🚀 Continuar Experiencia Midea</>
+            )}
           </Button>
         </div>
+
       </div>
     </div>
   )
