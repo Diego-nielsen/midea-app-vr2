@@ -14,15 +14,11 @@ interface UserData {
   puntaje: number
 }
 
-interface Respuesta {
-  id_estacion: string
-}
-
 export default function DashboardPage() {
   const router = useRouter()
   const supabase = createClient()
   const [userData, setUserData] = useState<UserData | null>(null)
-  const [estacionesCompletadas, setEstacionesCompletadas] = useState<string[]>([])
+  const [estacionesCompletadas, setEstacionesCompletadas] = useState(0)
   const [loading, setLoading] = useState(true)
 
   const loadUserData = useCallback(async () => {
@@ -34,22 +30,21 @@ export default function DashboardPage() {
     }
 
     try {
-      const { data: user } = await supabase
+      // Cargar datos del invitado con puntaje
+      const { data: invitado } = await supabase
         .from('invitados')
         .select('nombre, apellido, puntaje')
         .eq('id_invitado', userId)
         .single()
 
-      const { data: respuestas } = await supabase
-        .from('respuestas')
+      // Cargar estaciones completadas
+      const { data: resultados } = await supabase
+        .from('resultados_estacion')
         .select('id_estacion')
         .eq('id_invitado', userId)
 
-      if (user) setUserData(user)
-      if (respuestas) {
-        const estaciones = [...new Set(respuestas.map((r: Respuesta) => r.id_estacion))]
-        setEstacionesCompletadas(estaciones)
-      }
+      if (invitado) setUserData(invitado)
+      setEstacionesCompletadas(resultados?.length || 0)
     } catch (error) {
       console.error('Error loading user data:', error)
     } finally {
@@ -109,7 +104,7 @@ export default function DashboardPage() {
               {userData?.puntaje || 0}
             </p>
             <p className="text-sm text-gray-500 mt-4">
-              Estaciones completadas: {estacionesCompletadas.length}
+              Estaciones completadas: {estacionesCompletadas}
             </p>
           </div>
         </Card>

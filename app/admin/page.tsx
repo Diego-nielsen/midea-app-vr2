@@ -86,17 +86,9 @@ export default function AdminPage() {
 
       // Cargar invitados con sus stats
       const { data: invitadosData } = await supabase
-        .from('invitados')
-        .select(`
-          id_invitado,
-          nombre,
-          apellido,
-          reclamado,
-          perfiles (
-            puntos_totales
-          )
-        `)
-        .order('nombre')
+  .from('invitados')
+  .select('id_invitado, nombre, apellido, reclamado, puntaje')
+  .order('nombre')
 
       const invitadosStats: InvitadoStats[] = []
       
@@ -107,13 +99,13 @@ export default function AdminPage() {
           .eq('id_invitado', inv.id_invitado)
 
         invitadosStats.push({
-          id_invitado: inv.id_invitado,
-          nombre: inv.nombre,
-          apellido: inv.apellido,
-          reclamado: inv.reclamado,
-          puntos_totales: inv.perfiles?.[0]?.puntos_totales || 0,
-          estaciones_completadas: resultados?.length || 0
-        })
+  id_invitado: inv.id_invitado,
+  nombre: inv.nombre,
+  apellido: inv.apellido,
+  reclamado: inv.reclamado,
+  puntos_totales: inv.puntaje || 0,
+  estaciones_completadas: resultados?.length || 0
+})
       }
 
       setInvitados(invitadosStats)
