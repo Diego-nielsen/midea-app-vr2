@@ -1,78 +1,85 @@
-'use client'
+'use client';
 
-export const dynamic = 'force-dynamic'
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-import { useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-
-export default function HomePage() {
-  const router = useRouter()
-
-  const checkSession = useCallback(() => {
-    const userId = localStorage.getItem('midea_user')
-    if (userId) {
-      router.push('/dashboard')
-    }
-  }, [router])
+export default function LandingPage() {
+  const [checking, setChecking] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    checkSession()
-  }, [checkSession])
+    const userId = localStorage.getItem('midea_user_id');
+    
+    if (userId) {
+      router.push('/dashboard');
+    } else {
+      setChecking(false);
+    }
+  }, [router]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] flex items-center justify-center">
+        <div className="text-white text-xl animate-pulse">Verificando sesión...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] flex flex-col items-center justify-center p-4">
-      <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
-        {/* Logos en esquinas superiores */}
-        <div className="flex justify-between items-center mb-6 px-4">
-          <img 
-            src="/midea-logo.png" 
-            alt="Midea Logo" 
-            className="h-16 w-auto object-contain"
-          />
-          <img 
-            src="/begas-control.png" 
-            alt="Begas Control Logo" 
-            className="h-12 w-auto object-contain"
-          />
+    <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] flex flex-col items-center justify-center p-6">
+      <div className="max-w-md w-full space-y-8 text-center">
+        
+        {/* Logo */}
+        <div className="mb-8 animate-fade-in">
+          <div className="bg-white rounded-2xl p-8 inline-block shadow-2xl">
+            <h1 className="text-5xl font-black text-[#007FBA]">MIDEA</h1>
+            <p className="text-[#00A0E9] text-sm font-semibold mt-1">EXPERIENCE</p>
+          </div>
         </div>
 
-        {/* Title */}
-        <h1 className="text-center mb-2 text-gray-800">
-          <span className="text-2xl font-normal">Bienvenido a</span>
-        </h1>
-        <h2 className="text-center text-3xl font-bold text-[#00A0E9] mb-6">
-          Midea Experience
-        </h2>
+        {/* Texto de bienvenida */}
+        <div className="space-y-4 text-white">
+          <h2 className="text-4xl font-bold leading-tight">
+            ¡Bienvenido!
+          </h2>
+          <p className="text-lg opacity-90 leading-relaxed">
+            Participa en nuestra trivia interactiva y acumula puntos respondiendo preguntas en cada estación.
+          </p>
+        </div>
 
-        {/* Description */}
-        <p className="text-center text-gray-600 mb-8">
-          Escanea tu código QR para comenzar la aventura interactiva
-        </p>
-
-        {/* Main Button */}
-        <Button
-          onClick={() => router.push('/auth-qr')}
-          className="w-full bg-[#00A0E9] hover:bg-[#007FBA] text-white py-6 text-lg rounded-lg mb-4"
-        >
-          Iniciar sesión o registrarse
-        </Button>
-
-        {/* Admin Link */}
-        <div className="text-center">
+        {/* Botón principal */}
+        <div className="pt-6">
           <button
-            onClick={() => router.push('/admin')}
-            className="text-gray-600 text-sm hover:text-[#00A0E9] transition-colors"
+            onClick={() => router.push('/auth-qr')}
+            className="w-full bg-white text-[#007FBA] hover:bg-gray-50 font-bold py-8 text-xl rounded-xl shadow-2xl transition-all"
           >
-            ¿Eres organizador? <span className="text-[#00A0E9] font-semibold">Ir al panel admin</span>
+            Comenzar →
           </button>
         </div>
-      </div>
 
-      {/* Footer */}
-      <div className="mt-8 text-white text-sm">
-        Powered by Midea
+        {/* Instrucciones */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 text-white text-sm space-y-3 border border-white/20">
+          <p className="font-bold text-base">¿Cómo funciona?</p>
+          <div className="text-left space-y-2 opacity-90">
+            <div className="flex items-start gap-3">
+              <span className="text-xl">1️⃣</span>
+              <span>Escanea el QR de tu tarjeta</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-xl">2️⃣</span>
+              <span>Crea tu contraseña personal</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-xl">3️⃣</span>
+              <span>Visita las estaciones y responde trivias</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <span className="text-xl">4️⃣</span>
+              <span>Acumula puntos y compite</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,78 +1,75 @@
-'use client'
+'use client';
 
-export const dynamic = 'force-dynamic'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
+import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
-  const router = useRouter()
-  const supabase = createClient()
-  
-  const [perfil, setPerfil] = useState<any>(null)
-  const [estacionesCompletadas, setEstacionesCompletadas] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [estaciones, setEstaciones] = useState<string[]>([]);
+  const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
-    loadUserData()
-  }, [])
+    checkAuth();
+  }, []);
 
-  const loadUserData = async () => {
+  const checkAuth = async () => {
+    const userId = localStorage.getItem('midea_user_id');
+    
+    if (!userId) {
+      router.push('/');
+      return;
+    }
+
     try {
-      // Verificar sesión
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (!session) {
-        router.push('/')
-        return
+      const { data, error } = await supabase
+        .from('invitados')
+        .select('*')
+        .eq('id_invitado', userId)
+        .single();
+
+      if (error || !data) {
+        localStorage.clear();
+        router.push('/');
+        return;
       }
 
-      // Cargar perfil del usuario
-      const { data: perfilData } = await supabase
-        .from('perfiles')
-        .select('*')
-        .eq('id_usuario', session.user.id)
-        .single()
+      setUserData(data);
+      localStorage.setItem('midea_user_data', JSON.stringify(data));
 
-      setPerfil(perfilData)
+      const { data: resp } = await supabase
+        .from('respuestas')
+        .select('id_estacion')
+        .eq('id_invitado', userId);
 
-      // Cargar resultados de estaciones completadas
-      const { data: resultados } = await supabase
-        .from('resultados_estacion')
-        .select(`
-          *,
-          estaciones (
-            id_estacion,
-            nombre
-          )
-        `)
-        .eq('id_usuario', session.user.id)
-        .order('creado_en', { ascending: false })
-
-      setEstacionesCompletadas(resultados || [])
+      const uniqueEstaciones = [...new Set(resp?.map(r => r.id_estacion) || [])];
+      setEstaciones(uniqueEstaciones as string[]);
       
-    } catch (error) {
-      console.error('Error:', error)
-    } finally {
-      setLoading(false)
+      setLoading(false);
+    } catch (err) {
+      console.error('Error:', err);
+      router.push('/');
     }
-  }
+  };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/')
-  }
+  const handleLogout = () => {
+    localStorage.clear();
+    router.push('/');
+  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F6F8FA] flex items-center justify-center">
-        <div className="text-[#00A0E9] text-xl font-semibold">Cargando...</div>
+        <div className="text-[#007FBA] text-xl animate-pulse">Cargando...</div>
       </div>
-    )
+    );
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F8FA] pb-20">
+    <div className="min-h-screen bg-[#F6F8FA] pb-8">
       
       {/* Header */}
       <div className="bg-gradient-to-r from-[#00A0E9] to-[#007FBA] text-white p-6 rounded-b-3xl shadow-lg">
@@ -82,10 +79,10 @@ export default function DashboardPage() {
           <div className="flex justify-between items-start mb-6">
             <div>
               <h1 className="text-2xl font-bold">
-                ¡Hola, {perfil?.nombre}!
+                ¡Hola, {userData?.nombre}!
               </h1>
               <p className="text-blue-100 text-sm mt-1">
-                {perfil?.apellido}
+                {userData?.apellido}
               </p>
             </div>
             <button
@@ -100,7 +97,7 @@ export default function DashboardPage() {
           <div className="bg-white/10 backdrop-blur rounded-xl p-6">
             <div className="text-center">
               <div className="text-6xl font-bold mb-2">
-                {perfil?.puntos_totales || 0}
+                {userData?.puntaje || 0}
               </div>
               <div className="text-blue-100 text-sm uppercase tracking-wide">
                 Puntos acumulados
@@ -124,34 +121,25 @@ export default function DashboardPage() {
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Estaciones completadas</span>
               <span className="font-bold text-[#00A0E9] text-xl">
-                {estacionesCompletadas.length}
+                {estaciones.length}
               </span>
             </div>
             
-            {estacionesCompletadas.length > 0 && (
+            {estaciones.length > 0 && (
               <div className="pt-3 border-t border-gray-100">
                 <div className="space-y-2">
-                  {estacionesCompletadas.map((resultado) => (
+                  {estaciones.map((est, idx) => (
                     <div 
-                      key={resultado.id_resultado}
+                      key={idx}
                       className="flex items-center justify-between bg-green-50 p-3 rounded-lg"
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-green-600 text-xl">✓</span>
                         <div>
                           <p className="font-semibold text-[#0A0A0A]">
-                            {resultado.estaciones?.nombre || resultado.id_estacion}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            {resultado.correctas}/5 correctas
+                            Estación {est}
                           </p>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-[#00A0E9]">
-                          +{resultado.puntos}
-                        </p>
-                        <p className="text-xs text-gray-500">puntos</p>
                       </div>
                     </div>
                   ))}
@@ -159,7 +147,7 @@ export default function DashboardPage() {
               </div>
             )}
             
-            {estacionesCompletadas.length === 0 && (
+            {estaciones.length === 0 && (
               <div className="text-center py-6 text-gray-500">
                 <p className="text-4xl mb-2">🎯</p>
                 <p>Aún no has completado ninguna estación</p>
@@ -185,9 +173,8 @@ export default function DashboardPage() {
                 ¿Cómo funciona?
               </h4>
               <p className="text-sm text-gray-700 leading-relaxed">
-                Dirígete a una estación física, escanea su código QR y responde las 5 preguntas. 
-                Ganarás <strong>100 puntos</strong> por cada respuesta correcta, 
-                más un <strong>bonus de 200 puntos</strong> si las respondes todas bien.
+                Dirígete a una estación física, escanea su código QR y responde las preguntas. 
+                ¡Acumula puntos por cada respuesta correcta!
               </p>
             </div>
           </div>
@@ -195,5 +182,5 @@ export default function DashboardPage() {
 
       </div>
     </div>
-  )
+  );
 }

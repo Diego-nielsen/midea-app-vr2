@@ -1,6 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -12,48 +11,44 @@ export default function AuthQRPage() {
   
   const [step, setStep] = useState<'scan' | 'password'>('scan')
   const [invitadoData, setInvitadoData] = useState<any>(null)
+  const [scannedId, setScannedId] = useState('')
   const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [isNewUser, setIsNewUser] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleScan = async (result: any) => {
-    if (!result?.[0]?.rawValue) return
+    if (!result?.[0]?.rawValue || loading) return
     
     const qrCode = result[0].rawValue
     setLoading(true)
     setError('')
 
+    console.log('🔍 QR escaneado:', qrCode)
+
     try {
-      // Buscar invitado en la base de datos
-      const { data, error } = await supabase
+      const { data, error: dbError } = await supabase
         .from('invitados')
         .select('*')
         .eq('id_invitado', qrCode)
         .single()
 
-      if (error || !data) {
+      console.log('📊 Datos:', data)
+      console.log('❌ Error:', dbError)
+
+      if (dbError || !data) {
         setError('Código QR no válido. Por favor intenta de nuevo.')
         setLoading(false)
         return
       }
 
       setInvitadoData(data)
-      
-      // Verificar si ya tiene usuario en auth.users vinculado
-      const { data: perfil } = await supabase
-        .from('perfiles')
-        .select('*')
-        .eq('id_invitado', qrCode)
-        .single()
-
-      setIsNewUser(!perfil)
+      setScannedId(qrCode)
       setStep('password')
+      setLoading(false)
       
     } catch (err) {
+      console.error('💥 Error:', err)
       setError('Error al verificar el código')
-    } finally {
       setLoading(false)
     }
   }
@@ -61,78 +56,65 @@ export default function AuthQRPage() {
   const handleAuth = async () => {
     setError('')
     
-    if (isNewUser && password !== confirmPassword) {
-      setError('Las contraseñas no coinciden')
-      return
-    }
-    
-    if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres')
+    if (password.length < 4) {
+      setError('La contraseña debe tener al menos 4 caracteres')
       return
     }
 
     setLoading(true)
 
+    console.log('🔐 Ya tiene contraseña:', !!invitadoData?.password)
+
     try {
-      if (isNewUser) {
-        // Crear usuario nuevo con email generado
-        const email = `${invitadoData.id_invitado}@midea.app`
+      // Si ya tiene contraseña = login
+      if (invitadoData?.password && invitadoData.password !== '') {
+        console.log('✅ Login - verificando contraseña...')
         
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              nombre: invitadoData.nombre,
-              apellido: invitadoData.apellido,
-              id_invitado: invitadoData.id_invitado
-            }
-          }
-        })
-
-        if (signUpError) throw signUpError
-
-        // Crear perfil vinculado
-        const { error: perfilError } = await supabase
-          .from('perfiles')
-          .insert({
-            id_usuario: authData.user?.id,
-            id_invitado: invitadoData.id_invitado,
-            nombre: invitadoData.nombre,
-            apellido: invitadoData.apellido,
-            puntos_totales: 0
-          })
-
-        if (perfilError) throw perfilError
-
-        // Marcar invitado como reclamado
-        await supabase
-          .from('invitados')
-          .update({ reclamado: true })
-          .eq('id_invitado', invitadoData.id_invitado)
-
-      } else {
-        // Login con usuario existente
-        const email = `${invitadoData.id_invitado}@midea.app`
-        
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        })
-
-        if (signInError) {
+        if (invitadoData.password !== password) {
           setError('Contraseña incorrecta')
           setLoading(false)
           return
         }
-      }
 
-      // Redirigir al dashboard
-      router.push('/dashboard')
+        // Login exitoso
+        console.log('✅ Login exitoso')
+        localStorage.setItem('midea_user_id', invitadoData.id_invitado)
+        localStorage.setItem('midea_user_data', JSON.stringify(invitadoData))
+        router.push('/dashboard')
+
+      } else {
+        // Crear contraseña nueva
+        console.log('🆕 Registrando usuario...')
+        
+        const { data: updated, error: updateError } = await supabase
+          .from('invitados')
+          .update({
+            password: password,
+            reclamado: true
+          })
+          .eq('id_invitado', scannedId)
+          .select()
+          .single()
+
+        console.log('✅ Update result:', updated)
+        console.log('❌ Update error:', updateError)
+
+        if (updateError) {
+          setError(`Error: ${updateError.message}`)
+          setLoading(false)
+          return
+        }
+
+        // Registro exitoso
+        console.log('✅ Registro exitoso')
+        localStorage.setItem('midea_user_id', scannedId)
+        localStorage.setItem('midea_user_data', JSON.stringify(updated))
+        router.push('/dashboard')
+      }
       
     } catch (err: any) {
+      console.error('💥 Error:', err)
       setError(err.message || 'Error al procesar la autenticación')
-    } finally {
       setLoading(false)
     }
   }
@@ -168,7 +150,7 @@ export default function AuthQRPage() {
               </div>
 
               {loading && (
-                <p className="text-center text-gray-600">Verificando código...</p>
+                <p className="text-center text-gray-600 animate-pulse">Verificando código...</p>
               )}
 
               {error && (
@@ -189,28 +171,20 @@ export default function AuthQRPage() {
                   ¡Hola, {invitadoData?.nombre}!
                 </h2>
                 <p className="text-gray-600">
-                  {isNewUser ? 'Crea tu contraseña de acceso' : 'Ingresa tu contraseña'}
+                  {invitadoData?.password ? 'Ingresa tu contraseña' : 'Crea tu contraseña de acceso'}
                 </p>
               </div>
 
               <div className="space-y-4">
                 <input
                   type="password"
-                  placeholder="Contraseña"
+                  placeholder="Contraseña (mínimo 4 caracteres)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAuth()}
                   className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#00A0E9] focus:outline-none transition-colors"
+                  autoFocus
                 />
-
-                {isNewUser && (
-                  <input
-                    type="password"
-                    placeholder="Confirmar contraseña"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#00A0E9] focus:outline-none transition-colors"
-                  />
-                )}
 
                 {error && (
                   <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -223,7 +197,7 @@ export default function AuthQRPage() {
                   disabled={loading}
                   className="w-full bg-[#00A0E9] hover:bg-[#007FBA] text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Procesando...' : isNewUser ? 'Crear cuenta' : 'Iniciar sesión'}
+                  {loading ? 'Procesando...' : invitadoData?.password ? 'Iniciar sesión' : 'Crear contraseña'}
                 </button>
 
                 <button
@@ -231,7 +205,6 @@ export default function AuthQRPage() {
                     setStep('scan')
                     setInvitadoData(null)
                     setPassword('')
-                    setConfirmPassword('')
                     setError('')
                   }}
                   className="w-full bg-white border-2 border-[#00A0E9] text-[#00A0E9] hover:bg-[#00A0E9] hover:text-white font-semibold py-4 px-6 rounded-lg transition-all duration-200"
