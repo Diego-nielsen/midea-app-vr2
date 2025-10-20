@@ -170,42 +170,28 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold">{userData?.nombre}</h1>
         </div>
 
-        {/* Card de estadísticas - diseño tecnológico */}
-        <div className="backdrop-blur-xl bg-white/95 rounded-xl p-4 shadow-xl border border-white/50">
-          <div className="grid grid-cols-2 gap-3">
-            {/* Total de Aciertos - Principal */}
-            <div className="col-span-2 bg-gradient-to-br from-[#00A0E9] to-[#007FBA] rounded-lg p-4 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs opacity-90 mb-1">Total de Aciertos</p>
-                  <p className="text-4xl font-black">{userData?.puntaje || 0}</p>
-                  <p className="text-xs opacity-75 mt-1">respuestas correctas</p>
-                </div>
-                <div className="text-5xl opacity-20">🎯</div>
-              </div>
-            </div>
+        {/* Card de estadísticas compacto */}
+<div className="backdrop-blur-xl bg-white/95 rounded-xl p-4 shadow-xl border border-white/50">
+  <div className="grid grid-cols-2 gap-3">
+    
+    {/* Total de Aciertos */}
+    <div className="bg-gradient-to-br from-[#00A0E9] to-[#007FBA] rounded-lg p-4 text-white text-center">
+      <p className="text-xs opacity-90 mb-1">Total de Aciertos</p>
+      <p className="text-4xl font-black">{userData?.puntaje || 0}</p>
+      <p className="text-xs opacity-75 mt-1">respuestas correctas</p>
+    </div>
 
-            {/* Estaciones Completadas */}
-            <div className="bg-gradient-to-br from-green-400 to-green-600 rounded-lg p-3 text-white">
-              <p className="text-xs opacity-90 mb-1">Completadas</p>
-              <p className="text-3xl font-bold">
-                {estaciones.filter(e => e.completada).length}/{estaciones.length}
-              </p>
-              <p className="text-xs opacity-75">estaciones</p>
-            </div>
+    {/* Estaciones Completadas */}
+    <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 text-white text-center">
+      <p className="text-xs opacity-90 mb-1">Estaciones</p>
+      <p className="text-4xl font-black">
+        {estaciones.filter(e => e.completada).length}/{estaciones.length}
+      </p>
+      <p className="text-xs opacity-75 mt-1">completadas</p>
+    </div>
 
-            {/* Porcentaje de Éxito */}
-            <div className="bg-gradient-to-br from-purple-400 to-purple-600 rounded-lg p-3 text-white">
-              <p className="text-xs opacity-90 mb-1">Precisión</p>
-              <p className="text-3xl font-bold">
-                {estaciones.filter(e => e.completada).length > 0
-                  ? Math.round((userData?.puntaje || 0) / (estaciones.filter(e => e.completada).length * 5) * 100)
-                  : 0}%
-              </p>
-              <p className="text-xs opacity-75">de aciertos</p>
-            </div>
-          </div>
-        </div>
+  </div>
+</div>
 
         {/* Error message si existe */}
         {error && (
