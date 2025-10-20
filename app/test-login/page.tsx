@@ -13,7 +13,6 @@ export default function TestLoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [step, setStep] = useState<'input' | 'create'>('input')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,7 +20,7 @@ export default function TestLoginPage() {
     setLoading(true)
 
     try {
-      // Buscar invitado
+      // Buscar invitado en tabla invitados
       const { data: invitado, error: invitadoError } = await supabase
         .from('invitados')
         .select('*')
@@ -34,85 +33,23 @@ export default function TestLoginPage() {
         return
       }
 
-      // Verificar si ya tiene perfil
-      const { data: perfil } = await supabase
-        .from('perfiles')
-        .select('*')
-        .eq('id_invitado', idInvitado)
-        .single()
-
-      if (!perfil) {
-        // Necesita crear cuenta
-        setStep('create')
+      // Verificar contraseña
+      if (!invitado.password) {
+        setError('Este invitado no tiene contraseña configurada. Usa el flujo QR normal.')
         setLoading(false)
         return
       }
 
-      // Intentar login
-      const email = `${idInvitado}@midea.app`
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
-      if (signInError) {
+      // Comparar contraseña (en producción deberías usar hash)
+      if (invitado.password !== password) {
         setError('Contraseña incorrecta')
         setLoading(false)
         return
       }
 
-      router.push('/dashboard')
+      // Guardar sesión en localStorage
+      localStorage.setItem('midea_user', invitado.id_invitado)
       
-    } catch (err: any) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-
-    try {
-      const { data: invitado } = await supabase
-        .from('invitados')
-        .select('*')
-        .eq('id_invitado', idInvitado)
-        .single()
-
-      if (!invitado) {
-        setError('Invitado no encontrado')
-        setLoading(false)
-        return
-      }
-
-      // Crear usuario
-      const email = `${idInvitado}@midea.app`
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            nombre: invitado.nombre,
-            apellido: invitado.apellido,
-            id_invitado: invitado.id_invitado
-          }
-        }
-      })
-
-      if (signUpError) throw signUpError
-
-      // Crear perfil
-      await supabase.from('perfiles').insert({
-        id_usuario: authData.user?.id,
-        id_invitado: invitado.id_invitado,
-        nombre: invitado.nombre,
-        apellido: invitado.apellido,
-        puntos_totales: 0
-      })
-
       // Marcar como reclamado
       await supabase
         .from('invitados')
@@ -137,103 +74,68 @@ export default function TestLoginPage() {
             Login de Prueba
           </h1>
           <p className="text-gray-600 text-sm mt-2">
-            Solo para desarrollo
+            Solo para desarrollo - sin Supabase Auth
           </p>
         </div>
 
-        {step === 'input' ? (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ID Invitado
-              </label>
-              <input
-                type="text"
-                value={idInvitado}
-                onChange={(e) => setIdInvitado(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#00A0E9] focus:outline-none"
-                placeholder="TEST001"
-              />
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              ID Invitado
+            </label>
+            <input
+              type="text"
+              value={idInvitado}
+              onChange={(e) => setIdInvitado(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#00A0E9] focus:outline-none"
+              placeholder="U001, U002, etc."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#00A0E9] focus:outline-none"
+              placeholder="••••••"
+            />
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {error}
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#00A0E9] focus:outline-none"
-                placeholder="••••••"
-              />
-            </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#00A0E9] hover:bg-[#007FBA] text-white font-semibold py-3 rounded-lg transition disabled:opacity-50"
+          >
+            {loading ? 'Verificando...' : 'Ingresar'}
+          </button>
 
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#00A0E9] hover:bg-[#007FBA] text-white font-semibold py-3 rounded-lg transition disabled:opacity-50"
-            >
-              {loading ? 'Verificando...' : 'Ingresar'}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleCreate} className="space-y-4">
-            <p className="text-center text-gray-700 mb-4">
-              Usuario nuevo detectado. Crea tu contraseña:
-            </p>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Contraseña (mínimo 6 caracteres)
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#00A0E9] focus:outline-none"
-                placeholder="••••••"
-                minLength={6}
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#00A0E9] hover:bg-[#007FBA] text-white font-semibold py-3 rounded-lg transition disabled:opacity-50"
-            >
-              {loading ? 'Creando cuenta...' : 'Crear cuenta'}
-            </button>
-
+          <div className="text-center mt-4">
             <button
               type="button"
-              onClick={() => setStep('input')}
-              className="w-full border-2 border-gray-300 text-gray-700 font-semibold py-3 rounded-lg hover:bg-gray-50 transition"
+              onClick={() => router.push('/')}
+              className="text-sm text-gray-600 hover:text-[#00A0E9]"
             >
-              Volver
+              ← Volver al inicio
             </button>
-          </form>
-        )}
+          </div>
+        </form>
 
-        <button
-          onClick={() => router.push('/')}
-          className="w-full mt-4 text-sm text-gray-500 hover:text-gray-700"
-        >
-          ← Volver al inicio
-        </button>
-        
+        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-xs text-yellow-800">
+            <strong>Nota:</strong> Este login es solo para desarrollo. 
+            En producción, usa el flujo QR normal desde la pantalla de inicio.
+          </p>
+        </div>
       </div>
     </div>
   )
