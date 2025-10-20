@@ -32,12 +32,16 @@ export default function TriviaPage() {
   const [error, setError] = useState('')
   const [yaCompleto, setYaCompleto] = useState(false)
 
+  const preguntaActual = preguntas[currentQuestion]
+  const respuestaSeleccionada = respuestas[currentQuestion]
+
   useEffect(() => {
     const id = localStorage.getItem('midea_user')
     if (!id) {
       router.push('/auth-qr')
     } else {
       setUserId(id)
+      console.log('🔑 UserID cargado:', id)
     }
   }, [router])
 
@@ -45,11 +49,11 @@ export default function TriviaPage() {
     if (!result?.[0]?.rawValue || !userId) return
     
     const estacionId = result[0].rawValue
+    console.log('📍 Escaneando estación:', estacionId)
     setLoading(true)
     setError('')
 
     try {
-      // Verificar si la estación existe
       const { data: estacionData, error: estacionError } = await supabase
         .from('estaciones')
         .select('*')
@@ -58,11 +62,13 @@ export default function TriviaPage() {
 
       if (estacionError || !estacionData) {
         setError('Código de estación no válido')
+        console.error('❌ Error estación:', estacionError)
         setLoading(false)
         return
       }
 
-      // Verificar si ya completó esta estación
+      console.log('✅ Estación encontrada:', estacionData)
+
       const { data: yaHecho } = await supabase
         .from('resultados_estacion')
         .select('*')
@@ -71,13 +77,13 @@ export default function TriviaPage() {
         .single()
 
       if (yaHecho) {
+        console.log('⚠️ Ya completó esta estación')
         setYaCompleto(true)
         setEstacion(estacionData)
         setLoading(false)
         return
       }
 
-      // Cargar preguntas de la estación
       const { data: preguntasData, error: preguntasError } = await supabase
         .from('preguntas')
         .select(`
@@ -95,11 +101,11 @@ export default function TriviaPage() {
 
       if (preguntasError || !preguntasData || preguntasData.length === 0) {
         setError('No hay preguntas disponibles para esta estación')
+        console.error('❌ Error preguntas:', preguntasError)
         setLoading(false)
         return
       }
 
-      // Formatear preguntas
       const preguntasFormateadas = preguntasData.map((p: any) => ({
         id_pregunta: p.id_pregunta,
         enunciado: p.enunciado,
@@ -107,11 +113,13 @@ export default function TriviaPage() {
         opciones: p.opciones_pregunta
       }))
 
+      console.log('✅ Preguntas cargadas:', preguntasFormateadas.length)
       setEstacion(estacionData)
       setPreguntas(preguntasFormateadas)
       setStep('quiz')
       
     } catch (err) {
+      console.error('❌ Error general:', err)
       setError('Error al cargar la estación')
     } finally {
       setLoading(false)
@@ -123,6 +131,7 @@ export default function TriviaPage() {
       ...respuestas,
       [currentQuestion]: etiqueta
     })
+    console.log(`📝 Respuesta ${currentQuestion + 1}:`, etiqueta)
   }
 
   const handleNextQuestion = () => {
@@ -134,7 +143,15 @@ export default function TriviaPage() {
   }
 
   const handleSubmitQuiz = async () => {
-    if (!userId || !estacion) return
+    if (!userId || !estacion) {
+      console.error('❌ Faltan datos:', { userId, estacion })
+      return
+    }
+    
+    console.log('💾 Iniciando guardado de resultados...')
+    console.log('UserID:', userId)
+    console.log('Estación:', estacion.id_estacion)
+    console.log('Respuestas:', respuestas)
     
     setLoading(true)
 
@@ -142,6 +159,7 @@ export default function TriviaPage() {
       let correctas = 0
       
       // Guardar cada respuesta
+      console.log('📤 Guardando respuestas individuales...')
       for (let i = 0; i < preguntas.length; i++) {
         const pregunta = preguntas[i]
         const respuestaUsuario = respuestas[i]
@@ -149,45 +167,93 @@ export default function TriviaPage() {
         
         if (esCorrecta) correctas++
 
-        await supabase.from('respuestas').insert({
+        const dataRespuesta = {
           id_invitado: userId,
           id_estacion: estacion.id_estacion,
           id_pregunta: pregunta.id_pregunta,
           opcion_elegida: respuestaUsuario || '',
           es_correcta: esCorrecta
-        })
+        }
+
+        console.log(`  Guardando respuesta ${i + 1}:`, dataRespuesta)
+
+        const { data: respuestaGuardada, error: errorRespuesta } = await supabase
+          .from('respuestas')
+          .insert(dataRespuesta)
+          .select()
+
+        if (errorRespuesta) {
+          console.error(`❌ Error guardando respuesta ${i + 1}:`, errorRespuesta)
+          throw errorRespuesta
+        }
+
+        console.log(`✅ Respuesta ${i + 1} guardada:`, respuestaGuardada)
       }
 
-      // Calcular aciertos (1 acierto = 1 punto, sin bonificaciones)
-      const aciertos = correctas
+      console.log(`✅ Total correctas: ${correctas}/${preguntas.length}`)
 
       // Guardar resultado de estación
-      await supabase.from('resultados_estacion').insert({
+      const dataResultado = {
         id_invitado: userId,
         id_estacion: estacion.id_estacion,
         correctas: correctas,
-        puntos: aciertos
-      })
+        puntos: correctas
+      }
 
-      // Actualizar aciertos totales en invitados
-      const { data: invitadoActual } = await supabase
+      console.log('📤 Guardando resultado de estación:', dataResultado)
+
+      const { data: resultadoGuardado, error: errorResultado } = await supabase
+        .from('resultados_estacion')
+        .insert(dataResultado)
+        .select()
+
+      if (errorResultado) {
+        console.error('❌ Error guardando resultado:', errorResultado)
+        throw errorResultado
+      }
+
+      console.log('✅ Resultado guardado:', resultadoGuardado)
+
+      // Actualizar puntaje total
+      console.log('📤 Actualizando puntaje total del invitado...')
+      
+      const { data: invitadoActual, error: errorInvitado } = await supabase
         .from('invitados')
         .select('puntaje')
         .eq('id_invitado', userId)
         .single()
 
-      const nuevosAciertos = (invitadoActual?.puntaje || 0) + aciertos
+      if (errorInvitado) {
+        console.error('❌ Error leyendo invitado:', errorInvitado)
+        throw errorInvitado
+      }
 
-      await supabase
+      const puntajeActual = invitadoActual?.puntaje || 0
+      const nuevosPuntos = puntajeActual + correctas
+
+      console.log(`  Puntaje actual: ${puntajeActual}`)
+      console.log(`  Nuevos puntos: +${correctas}`)
+      console.log(`  Total: ${nuevosPuntos}`)
+
+      const { error: errorUpdate } = await supabase
         .from('invitados')
-        .update({ puntaje: nuevosAciertos })
+        .update({ puntaje: nuevosPuntos })
         .eq('id_invitado', userId)
 
-      // Mostrar resultados
+      if (errorUpdate) {
+        console.error('❌ Error actualizando puntaje:', errorUpdate)
+        throw errorUpdate
+      }
+
+      console.log('✅ Puntaje actualizado correctamente')
+      console.log('🎉 TODO GUARDADO EXITOSAMENTE')
+
       setStep('results')
       
-    } catch (err) {
-      setError('Error al guardar los resultados')
+    } catch (err: any) {
+      console.error('❌❌❌ ERROR CRÍTICO:', err)
+      console.error('Detalles:', err.message, err.details, err.hint)
+      setError('Error al guardar los resultados: ' + err.message)
     } finally {
       setLoading(false)
     }
@@ -198,75 +264,70 @@ export default function TriviaPage() {
     preguntas.forEach((p, i) => {
       if (respuestas[i] === p.opcion_correcta) correctas++
     })
-    
-    // 1 acierto = 1 punto (sin bonificaciones)
-    const aciertos = correctas
-    
-    return { correctas, aciertos }
+    return { correctas, total: preguntas.length }
   }
 
-  const preguntaActual = preguntas[currentQuestion]
-  const respuestaSeleccionada = respuestas[currentQuestion]
+  if (!userId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] flex items-center justify-center">
+        <p className="text-white text-xl">Cargando...</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-[#F6F8FA] pb-20">
-      
-      {/* Header */}
-      <div className="bg-gradient-to-r from-[#00A0E9] to-[#007FBA] text-white p-6">
-        <div className="max-w-md mx-auto">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 mb-4 hover:gap-3 transition-all"
-          >
-            ← Volver al dashboard
-          </button>
-          <h1 className="text-2xl font-bold">Trivias Midea</h1>
-        </div>
-      </div>
-
-      <div className="max-w-md mx-auto px-6 mt-8">
+    <div className="min-h-screen bg-gradient-to-b from-[#00A0E9] to-[#007FBA] p-4">
+      <div className="max-w-2xl mx-auto pt-8">
         
-        {/* PASO 1: Escanear estación */}
+        {/* PASO 1: Escanear QR de estación */}
         {step === 'scan' && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 space-y-6">
-            <h2 className="text-2xl font-bold text-center text-[#0A0A0A]">
+          <div className="space-y-6">
+            <h1 className="text-3xl font-bold text-white text-center mb-8">
               Escanea la estación
-            </h2>
-            
-            <div className="bg-black rounded-lg overflow-hidden">
-              <Scanner
-                onScan={handleScanEstacion}
-                onError={() => setError('Error al acceder a la cámara')}
-                styles={{ container: { width: '100%' } }}
-              />
+            </h1>
+
+            <div className="bg-white rounded-2xl p-6 shadow-2xl">
+              <div className="aspect-square w-full max-w-sm mx-auto rounded-lg overflow-hidden mb-4">
+                <Scanner
+                  onScan={(result) => {
+                    if (result && result[0]) {
+                      handleScanEstacion(result)
+                    }
+                  }}
+                  styles={{
+                    container: { width: '100%', height: '100%' }
+                  }}
+                />
+              </div>
+
+              {error && (
+                <p className="text-red-500 text-center font-semibold mb-4">{error}</p>
+              )}
+
+              {yaCompleto && (
+                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4 text-center">
+                  <p className="text-yellow-800 font-bold mb-2">⚠️ Ya completaste esta estación</p>
+                  <p className="text-sm text-yellow-700">Busca otra estación para continuar</p>
+                  <button
+                    onClick={() => setYaCompleto(false)}
+                    className="mt-3 text-sm text-[#00A0E9] font-semibold hover:underline"
+                  >
+                    Escanear otra estación
+                  </button>
+                </div>
+              )}
+
+              <p className="text-sm text-gray-600 text-center">
+                Busca el código QR de la estación física
+              </p>
             </div>
 
-            {loading && (
-              <p className="text-center text-gray-600">Cargando preguntas...</p>
-            )}
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            {yaCompleto && (
-              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
-                <p className="font-semibold mb-2">Ya completaste esta estación</p>
-                <p className="text-sm">Busca otra estación para seguir sumando puntos</p>
-                <button
-                  onClick={() => setYaCompleto(false)}
-                  className="mt-3 text-sm text-[#00A0E9] font-semibold hover:underline"
-                >
-                  Escanear otra estación
-                </button>
-              </div>
-            )}
-
-            <p className="text-sm text-gray-600 text-center">
-              Busca el código QR de la estación física
-            </p>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="w-full bg-white text-[#00A0E9] font-bold py-4 rounded-xl"
+            >
+              ← Volver al dashboard
+            </button>
           </div>
         )}
 
@@ -340,7 +401,6 @@ export default function TriviaPage() {
               ¡Trivia completada!
             </h2>
 
-            {/* Aciertos destacados */}
             <div className="bg-gradient-to-br from-[#00A0E9] to-[#007FBA] text-white rounded-xl p-6">
               <p className="text-sm opacity-90 mb-2">Obtuviste</p>
               <p className="text-5xl font-bold mb-2">
@@ -348,8 +408,6 @@ export default function TriviaPage() {
               </p>
               <p className="text-sm opacity-90">aciertos</p>
             </div>
-
-            
 
             <div className="space-y-3 pt-4">
               <button
