@@ -91,7 +91,9 @@ export default function DashboardPage() {
       const estacionesProcesadas: Estacion[] = (todasEstaciones || []).map(est => {
         const resultado = resultados?.find(r => r.id_estacion === est.id_estacion)
         return {
-          ...est,
+          id_estacion: est.id_estacion,
+          nombre: est.nombre || 'Sin nombre',
+          descripcion: est.descripcion || est.description || '',
           completada: !!resultado,
           correctas: resultado?.correctas || 0,
           total_preguntas: 5
@@ -130,28 +132,29 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#00A0E9] via-[#007FBA] to-[#005A8F] pb-8">
-      {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-[#00A0E9] via-[#007FBA] to-[#005A8F]">
+      {/* Header compacto */}
       <div className="backdrop-blur-md bg-white/10 border-b border-white/20">
-        <div className="max-w-4xl mx-auto px-6 py-4">
+        <div className="max-w-4xl mx-auto px-4 py-2">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <img 
                 src="/midea-logo.png" 
                 alt="Midea Logo" 
-                className="h-10 w-auto brightness-0 invert"
+                className="h-8 w-auto brightness-0 invert"
               />
-              <div className="h-8 w-px bg-white/30"></div>
+              <div className="h-6 w-px bg-white/30"></div>
               <img 
                 src="/begas-control.png" 
                 alt="Begas Control" 
-                className="h-8 w-auto brightness-0 invert"
+                className="h-6 w-auto brightness-0 invert"
               />
             </div>
             <Button
               onClick={handleLogout}
               variant="ghost"
-              className="text-white hover:bg-white/20 border border-white/30"
+              size="sm"
+              className="text-white hover:bg-white/20 border border-white/30 text-xs px-3 py-1"
             >
               Cerrar Sesión
             </Button>
@@ -159,54 +162,51 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 py-4 space-y-4">
         
-        {/* Bienvenida */}
-        <div className="text-center text-white mb-6">
-          <p className="text-lg opacity-90 mb-2">Bienvenido,</p>
-          <h1 className="text-4xl font-bold">{userData?.nombre}</h1>
+        {/* Bienvenida compacta */}
+        <div className="text-center text-white">
+          <p className="text-sm opacity-90">Bienvenido,</p>
+          <h1 className="text-2xl font-bold">{userData?.nombre}</h1>
         </div>
 
-        {/* Card de aciertos totales */}
-        <div className="backdrop-blur-xl bg-white/95 rounded-2xl p-8 shadow-2xl border border-white/50">
+        {/* Card de aciertos más compacta */}
+        <div className="backdrop-blur-xl bg-white/95 rounded-xl p-4 shadow-xl border border-white/50">
           <div className="text-center">
-            <p className="text-gray-600 text-lg mb-3 font-semibold">Total de Aciertos</p>
-            <p className="text-7xl font-black text-[#00A0E9] mb-2">{userData?.puntaje || 0}</p>
-            <p className="text-sm text-gray-500">respuestas correctas</p>
+            <p className="text-gray-600 text-sm mb-1 font-semibold">Total de Aciertos</p>
+            <p className="text-5xl font-black text-[#00A0E9]">{userData?.puntaje || 0}</p>
+            <p className="text-xs text-gray-500 mt-1">respuestas correctas</p>
           </div>
         </div>
 
         {/* Error message si existe */}
         {error && (
-          <div className="backdrop-blur-xl bg-red-100 rounded-2xl p-6 shadow-xl border border-red-300">
-            <h3 className="font-bold text-red-800 mb-2">⚠️ Error</h3>
-            <p className="text-sm text-red-700">{error}</p>
-            <p className="text-xs text-red-600 mt-2">
-              Revisa la consola (F12) para más detalles. Es posible que RLS esté bloqueando las consultas.
-            </p>
+          <div className="backdrop-blur-xl bg-red-100 rounded-xl p-3 shadow-xl border border-red-300">
+            <h3 className="font-bold text-red-800 text-sm mb-1">⚠️ Error</h3>
+            <p className="text-xs text-red-700">{error}</p>
           </div>
         )}
 
-        {/* Tabla de estaciones */}
-        <div className="backdrop-blur-xl bg-white/95 rounded-2xl p-8 shadow-2xl border border-white/50">
-          <h2 className="text-2xl font-bold text-[#0A0A0A] mb-6">
+        {/* Tabla de estaciones compacta */}
+        <div className="backdrop-blur-xl bg-white/95 rounded-xl p-4 shadow-xl border border-white/50">
+          <h2 className="text-lg font-bold text-[#0A0A0A] mb-3 flex items-center gap-2">
             📍 Progreso por Estación
           </h2>
 
           {estaciones.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-400 mb-4">No hay estaciones disponibles</p>
-              <p className="text-sm text-gray-500">
-                Esto puede deberse a que RLS está bloqueando las consultas o no hay estaciones creadas.
+            <div className="text-center py-6">
+              <p className="text-gray-400 text-sm mb-2">No hay estaciones disponibles</p>
+              <p className="text-xs text-gray-500">
+                Revisa que RLS esté desactivado o que haya estaciones creadas.
               </p>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-gray-200">
-              <table className="w-full">
+            <div className="overflow-hidden rounded-lg border border-gray-200">
+              <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gradient-to-r from-[#00A0E9] to-[#007FBA] text-white">
-                    <th className="text-left px-6 py-4 font-bold">Estación</th>
-                    <th className="text-center px-6 py-4 font-bold">Aciertos</th>
+                    <th className="text-left px-3 py-2 font-bold">Estación</th>
+                    <th className="text-center px-3 py-2 font-bold">Aciertos</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -215,21 +215,21 @@ export default function DashboardPage() {
                       key={estacion.id_estacion}
                       className={`border-b border-gray-200 ${
                         index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                      } hover:bg-blue-50 transition-colors`}
+                      }`}
                     >
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-semibold text-[#0A0A0A]">{estacion.nombre}</p>
-                          <p className="text-sm text-gray-500">{estacion.descripcion}</p>
-                        </div>
+                      <td className="px-3 py-2">
+                        <p className="font-semibold text-[#0A0A0A] text-sm">{estacion.nombre}</p>
+                        {estacion.descripcion && (
+                          <p className="text-xs text-gray-500">{estacion.descripcion}</p>
+                        )}
                       </td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-3 py-2 text-center">
                         {estacion.completada ? (
-                          <span className="inline-flex items-center justify-center min-w-[80px] px-4 py-2 bg-green-100 text-green-700 rounded-lg font-bold text-lg border-2 border-green-300">
-                            {estacion.correctas}/{estacion.total_preguntas}
+                          <span className="inline-flex items-center justify-center px-3 py-1 bg-green-100 text-green-700 rounded-lg font-bold text-sm border-2 border-green-300">
+                            {estacion.correctas}/5
                           </span>
                         ) : (
-                          <span className="inline-flex items-center justify-center min-w-[80px] px-4 py-2 bg-gray-100 text-gray-400 rounded-lg font-bold text-lg border-2 border-gray-300">
+                          <span className="inline-flex items-center justify-center px-3 py-1 bg-gray-100 text-gray-400 rounded-lg font-bold text-sm border-2 border-gray-300">
                             - / -
                           </span>
                         )}
@@ -243,10 +243,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Botón para ir a trivias */}
-        <div className="flex justify-center pt-4">
+        <div className="pb-4">
           <Button
             onClick={() => router.push('/trivia')}
-            className="w-full max-w-md bg-gradient-to-r from-[#00A0E9] to-[#007FBA] hover:from-[#007FBA] hover:to-[#005A8F] text-white py-6 text-xl font-bold rounded-xl shadow-lg"
+            className="w-full bg-gradient-to-r from-[#00A0E9] to-[#007FBA] hover:from-[#007FBA] hover:to-[#005A8F] text-white py-4 text-lg font-bold rounded-xl shadow-lg"
           >
             🚀 Ir a Trivias
           </Button>
